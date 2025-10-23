@@ -10,7 +10,13 @@ table { border-collapse:collapse; margin-bottom:15px;}
 td, th { border:1px solid #444; padding:6px 12px; text-align:right;}
 th { background-color:#222;}
 #message { color:#ff3b3b; font-size:16px; font-weight:bold; text-align:center; animation:pulse 2s infinite; margin-bottom:20px;}
-@keyframes pulse { 0%{text-shadow:0 0 5px #ff4d4d;} 50%{text-shadow:0 0 20px #ff1a1a;} 100%{text-shadow:0 0 5px #ff4d4d;} }
+#copyBtn { margin-bottom: 20px; padding:8px 16px; background:#ff3b3b; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:16px;}
+#copyBtn:active { background:#d32f2f; }
+@keyframes pulse { 
+  0%{text-shadow:0 0 5px #ff4d4d;} 
+  50%{text-shadow:0 0 20px #ff1a1a;} 
+  100%{text-shadow:0 0 5px #ff4d4d;} 
+}
 </style>
 </head>
 <body>
@@ -18,6 +24,7 @@ th { background-color:#222;}
 <h2>📈 주가 ±5% 계산기</h2>
 <p id="message"></p>
 <input type="number" id="price" placeholder="주가 입력" oninput="calc()" autofocus>
+<button id="copyBtn" onclick="copyResult()">결과 복사하기</button>
 <table id="result"></table>
 
 <script>
@@ -37,10 +44,31 @@ const messages=[
 "🌅 붉은 주가, 그건 단순한 숫자가 아니라 내 흐름의 증거다.",
 "🌠 오늘도 붉은 주가가 떠오른다. 운과 나의 맥이 하나로 이어진다.",
 "🔥 붉은 주가의 불꽃이 깨어난다. 계산은 끝, 상승은 시작이다.",
-"💫 붉은 주가가 춤춘다. 우주의 리듬이 나를 따른다.",
+"💫 붉은 주가가 춤춘다. 나는 우주의 리듬을 타고 흐른다.",
 "🚀 붉은 주가, 나의 신호. 상승은 이미 결정되었다."
 ];
 document.getElementById("message").textContent=messages[Math.floor(Math.random()*messages.length)];
+
+function copyResult() {
+  const table = document.getElementById('result');
+  let text = "변동률\t가격\n";
+  // 표가 비었으면
+  if (!table.innerText.trim()) {
+    alert("먼저 주가를 입력하세요!");
+    return;
+  }
+  // 각 행에서 텍스트 추출
+  for (let row of table.rows) {
+    let cells = [];
+    for (let cell of row.cells) {
+      cells.push(cell.innerText);
+    }
+    text += cells.join('\t') + "\n";
+  }
+  navigator.clipboard.writeText(text).then(()=>{
+    alert("결과가 복사되었습니다!\n엑셀 등에 붙여넣기 하세요.");
+  });
+}
 </script>
 
 </body>
