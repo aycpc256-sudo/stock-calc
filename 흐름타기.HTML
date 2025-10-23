@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>주가 ±5% 계산기 (PC)</title>
+<style>
+body { font-family: Arial; background:#111; color:#eee; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh;}
+input { width:160px; padding:8px; font-size:18px; text-align:center; border-radius:8px; border:none; margin-bottom:20px;}
+table { border-collapse:collapse; margin-bottom:15px;}
+td, th { border:1px solid #444; padding:6px 12px; text-align:right;}
+th { background-color:#222;}
+#message { color:#ff3b3b; font-size:16px; font-weight:bold; text-align:center; animation:pulse 2s infinite; margin-bottom:20px;}
+@keyframes pulse { 0%{text-shadow:0 0 5px #ff4d4d;} 50%{text-shadow:0 0 20px #ff1a1a;} 100%{text-shadow:0 0 5px #ff4d4d;} }
+</style>
+</head>
+<body>
+
+<h2>📈 주가 ±5% 계산기</h2>
+<p id="message"></p>
+<input type="number" id="price" placeholder="주가 입력" oninput="calc()" autofocus>
+<table id="result"></table>
+
+<script>
+function calc() {
+  const base = parseFloat(document.getElementById('price').value);
+  const table = document.getElementById('result');
+  if(isNaN(base)){ table.innerHTML=''; return; }
+  let html='<tr><th>변동률</th><th>가격</th></tr>';
+  for(let i=-5;i<=5;i++){
+    const val=(base*(1+i/100)).toFixed(2);
+    html+=`<tr><td>${i>0?'+'+i:i}%</td><td>${val}</td></tr>`;
+  }
+  table.innerHTML=html;
+}
+const messages=[
+"🔥 붉은 주가가 솟는다. 나의 의지가 파동이 된다.",
+"🌅 붉은 주가, 그건 단순한 숫자가 아니라 내 흐름의 증거다.",
+"🌠 오늘도 붉은 주가가 떠오른다. 운과 나의 맥이 하나로 이어진다.",
+"🔥 붉은 주가의 불꽃이 깨어난다. 계산은 끝, 상승은 시작이다.",
+"💫 붉은 주가가 춤춘다. 우주의 리듬이 나를 따른다.",
+"🚀 붉은 주가, 나의 신호. 상승은 이미 결정되었다."
+];
+document.getElementById("message").textContent=messages[Math.floor(Math.random()*messages.length)];
+</script>
+
+</body>
+</html>
