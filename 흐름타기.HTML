@@ -272,6 +272,59 @@ button:active { background:#d32f2f; }
 }
 
 .stock-row:last-child { border-bottom:none; }
+
+.num-input-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.num-input-wrap input.num-input {
+  padding-right: 20px !important;
+}
+
+.num-spin {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  bottom: 2px;
+  width: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.num-spin button {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  font-size: 7px;
+  line-height: 1;
+  background: #333;
+  border: 1px solid #444;
+  color: #999;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.num-spin button:hover { background:#ff3b3b; color:#fff; border-color:#ff3b3b; }
+.num-spin button:active { background:#d32f2f; }
+
+.price-input.num-input {
+  padding-right: 34px !important;
+}
+
+.price-input-wrap .num-spin {
+  width: 26px;
+  right: 6px;
+  top: 8px;
+  bottom: 8px;
+}
+
+.price-input-wrap .num-spin button {
+  font-size: 11px;
+}
 </style>
 </head>
 <body>
@@ -528,18 +581,68 @@ function formatNumberValue(input, preserveCursor) {
 }
 
 // 콤마 입력창들에 실시간 포맷 + 연결된 계산함수 자동 실행 바인딩
+function triggerCalc(inp) {
+  const fn = inp.dataset.calc;
+  if (fn && typeof window[fn] === 'function') {
+    if ('calcArg' in inp.dataset) window[fn](inp.dataset.calcArg);
+    else window[fn]();
+  }
+}
+
 function bindNumInputs() {
   document.querySelectorAll('.num-input').forEach(inp => {
     formatNumberValue(inp, false); // 초기값에도 콤마 적용
     inp.addEventListener('input', () => {
       formatNumberValue(inp, true);
-      const fn = inp.dataset.calc;
-      if (fn && typeof window[fn] === 'function') {
-        if ('calcArg' in inp.dataset) window[fn](inp.dataset.calcArg);
-        else window[fn]();
-      }
+      triggerCalc(inp);
     });
+    addSpinner(inp);
   });
+}
+
+// 숫자 입력창 옆에 위/아래 증감 버튼 추가 (콤마 입력창으로 바뀌며 사라진 기본 스피너 대체)
+function addSpinner(inp) {
+  if (inp.dataset.spun) return;
+  inp.dataset.spun = '1';
+
+  const step = parseFloat(inp.getAttribute('step')) || 1;
+  const decimals = (String(step).split('.')[1] || '').length;
+
+  const wrap = document.createElement('span');
+  wrap.className = 'num-input-wrap' + (inp.classList.contains('price-input') ? ' price-input-wrap' : '');
+  inp.parentNode.insertBefore(wrap, inp);
+  wrap.appendChild(inp);
+
+  const spin = document.createElement('span');
+  spin.className = 'num-spin';
+
+  const up = document.createElement('button');
+  up.type = 'button';
+  up.textContent = '▲';
+  up.tabIndex = -1;
+
+  const down = document.createElement('button');
+  down.type = 'button';
+  down.textContent = '▼';
+  down.tabIndex = -1;
+
+  function bump(dir) {
+    let cur = parseNum(inp.value);
+    if (isNaN(cur)) cur = 0;
+    let next = cur + dir * step;
+    if (next < 0) next = 0;
+    next = parseFloat(next.toFixed(decimals));
+    inp.value = String(next);
+    formatNumberValue(inp, false);
+    triggerCalc(inp);
+  }
+
+  up.addEventListener('click', () => bump(1));
+  down.addEventListener('click', () => bump(-1));
+
+  spin.appendChild(up);
+  spin.appendChild(down);
+  wrap.appendChild(spin);
 }
 
 // 클립보드 복사 헬퍼 (실패 시 폴백 포함)
