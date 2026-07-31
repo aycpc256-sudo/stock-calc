@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>📈 주식/ETF 계산기</title>
 <style>
-/* 기존 스타일 그대로 */
 body { 
   font-family: 'Malgun Gothic', Arial, sans-serif; 
   background:#111; 
@@ -364,7 +363,7 @@ function triggerCalc(inp) {
   }
 }
 
-// 한국 주식 호가 단위 (정확한 기준)
+// 한국 주식 호가 단위
 function getPriceTick(price) {
   if (price < 2000) return 1;
   if (price < 5000) return 5;
@@ -398,14 +397,30 @@ function addSpinner(inp) {
   function bump(dir) {
     let cur = parseNum(inp.value);
     if (isNaN(cur)) cur = 0;
-    const step = tickMode ? getPriceTick(cur) : fallbackStep;
-    let next = cur + dir * step;
-    if (next < 0) next = 0;
-    if (tickMode) {
-      const t = getPriceTick(next);
-      next = Math.round(next / t) * t;
+    if (!tickMode) {
+      const step = fallbackStep;
+      let next = cur + dir * step;
+      if (next < 0) next = 0;
+      next = parseFloat(next.toFixed(decimals));
+      inp.value = String(next);
+      formatNumberValue(inp, false);
+      triggerCalc(inp);
+      return;
     }
-    next = parseFloat(next.toFixed(decimals));
+
+    // tickMode = true (가격 필드)
+    let next;
+    if (dir === 1) {
+      const tick = getPriceTick(cur);
+      next = Math.ceil(cur / tick) * tick;
+      if (next === cur) next = cur + tick; // 이미 유효 호가이면 한 틱 증가
+    } else {
+      const tick = getPriceTick(cur - 1); // 경계 감소를 위해 이전 구간 틱 사용
+      next = Math.floor(cur / tick) * tick;
+      if (next === cur) next = cur - tick; // 이미 유효 호가이면 한 틱 감소
+    }
+
+    if (next < 0) next = 0;
     inp.value = String(next);
     formatNumberValue(inp, false);
     triggerCalc(inp);
@@ -455,7 +470,7 @@ document.querySelectorAll('.mode-tab').forEach(t => {
   });
 });
 
-// ETF 하위 탭
+// ETF 하위 탭 전환 + 재계산
 document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
   btn.addEventListener('click', () => {
     const scope = document.getElementById('mode-etf');
@@ -488,14 +503,15 @@ function calcStock() {
 function copyResultStock() {
   const base = parseNum(document.getElementById('s-price').value);
   if (isNaN(base)||base<=0) { alert('먼저 계산하세요!'); return; }
-  let text = `【주가 변동률 계산】\n기준가: ${fmt(base)}\n\n[상승 구간]\n`;
-  STOCK_LEVELS.forEach(p => text += `+${p}%\t${fmt(base*(1+p/100))}\n`);
+  let text = `【주가 변동률 계산】\n기준가: ${fmt(base)}\n\n`;
+  text += `[상승 구간]\n`;
+  STOCK_LEVELS.forEach(p => { text += `+${p}%\t${fmt(base*(1+p/100))}\n`; });
   text += `\n[하락 구간]\n`;
-  STOCK_LEVELS.forEach(p => text += `-${p}%\t${fmt(base*(1-p/100))}\n`);
+  STOCK_LEVELS.forEach(p => { text += `-${p}%\t${fmt(base*(1-p/100))}\n`; });
   copyToClipboard(text);
 }
 
-// ===== ETF 평단가 (원본 로직 유지) =====
+// ===== ETF 평단가 =====
 let lastAvgResult=null, avgInputMode=null;
 function resetAvgMode() { avgInputMode=null; document.getElementById('a-qty2').value=''; document.getElementById('a-price2').value=''; document.getElementById('a-cost2').value=''; document.getElementById('a-target-avg').value=''; updateAvgModeBadge(); calcAvg(); }
 function updateAvgModeBadge() {
@@ -557,12 +573,50 @@ function calcAvg(source) {
   } else if (avgInputMode === 'forward') document.getElementById('a-target-avg').value = '';
   lastAvgResult = { qty1, avg1, cost1, fee1, haveAddl, qty2, price2, cost2, fee2, totalQty, totalCost, totalFee, totalCostWithFee, avgWithoutFee, current };
   let html = warnMsg ? `<div class="warn-box">${warnMsg}</div>` : '';
-  html += `<div class="result-grid">...`; // (결과 HTML은 원본과 동일하므로 생략)
+  html += `<div class="result-grid">
+    <div><div style="font-size:11px; color:#aaa; font-weight:bold; margin-bottom:8px;">【현재】</div><div class="result-table"><div class="result-table-row"><span class="result-label">매입금액</span><span class="result-val">${fmt(cost1)}</span></div>`;
+  if (current>0) {
+    const evalCur = qty1 * current, pnlCur = evalCur - cost1 - fee1, rateCur = cost1>0 ? (pnlCur/cost1*100) : 0;
+    html += `<div class="result-table-row"><span class="result-label">평가금액</span><span class="result-val">${fmt(evalCur)}</span></div>
+      <div class="result-table-row"><span class="result-label">평가손익</span><span class="result-val ${pnlCur>=0?'positive':'negative'}">${pnlCur>=0?'+':'-'}${fmt(Math.abs(pnlCur))}</span></div>
+      <div class="result-table-row"><span class="result-label">수익률</span><span class="result-val ${pnlCur>=0?'positive':'negative'}">${pnlCur>=0?'+':'-'}${Math.abs(rateCur).toFixed(2)}%</span></div>`;
+  } else html += `<div class="result-table-row"><span class="result-label">평가금액</span><span class="result-val">-</span></div>`;
+  html += `<div class="result-table-row"><span class="result-label">수수료</span><span class="result-val">${fmt(fee1)}</span></div></div></div>
+    <div><div style="font-size:11px; color:#aaa; font-weight:bold; margin-bottom:8px;">【예상】</div><div class="result-table">`;
+  if (haveAddl) {
+    html += `<div class="result-table-row"><span class="result-label">예상 매입금액</span><span class="result-val">${fmt(totalCost)}</span></div>`;
+    if (current>0) {
+      const evalExp = totalQty * current, pnlExp = evalExp - totalCostWithFee, rateExp = totalCostWithFee>0 ? (pnlExp/totalCostWithFee*100) : 0;
+      html += `<div class="result-table-row"><span class="result-label">예상 평가금액</span><span class="result-val">${fmt(evalExp)}</span></div>
+        <div class="result-table-row"><span class="result-label">예상 평가손익</span><span class="result-val ${pnlExp>=0?'positive':'negative'}">${pnlExp>=0?'+':'-'}${fmt(Math.abs(pnlExp))}</span></div>
+        <div class="result-table-row"><span class="result-label">예상 수익률</span><span class="result-val ${pnlExp>=0?'positive':'negative'}">${pnlExp>=0?'+':'-'}${Math.abs(rateExp).toFixed(2)}%</span></div>`;
+    }
+    html += `<div class="result-table-row"><span class="result-label">예상 수수료</span><span class="result-val">${fmt(totalFee)}</span></div>
+      <div class="result-table-row" style="border-bottom:1px solid #333; padding:8px 0;"><span class="result-label">평균단가</span><span class="result-val positive">${fmt(Math.round(avgWithoutFee))}</span></div>`;
+  } else html += `<div class="result-table-row"><span class="result-label">예상 매입금액</span><span class="result-val">-</span></div>`;
+  html += `</div></div></div>`;
   document.getElementById('result-avg').innerHTML = html;
 }
-function copyResultAvg() { /* 원본과 동일 */ }
+function copyResultAvg() {
+  if (!lastAvgResult) { alert('먼저 계산하세요!'); return; }
+  const r = lastAvgResult;
+  let text = `【ETF 평단가 계산】\n\n[현재]\n매수수량: ${fmt(r.qty1)}주\n매수단가: ${fmt(r.avg1)}\n매입금액: ${fmt(r.cost1)}\n수수료: ${fmt(r.fee1)}\n`;
+  if (r.current>0) {
+    const evalCur = r.qty1 * r.current, pnlCur = evalCur - r.cost1 - r.fee1, rateCur = r.cost1>0 ? (pnlCur/r.cost1*100) : 0;
+    text += `평가금액: ${fmt(evalCur)}\n평가손익: ${pnlCur>=0?'+':'-'}${fmt(Math.abs(pnlCur))}\n수익률: ${rateCur>=0?'+':'-'}${Math.abs(rateCur).toFixed(2)}%\n`;
+  }
+  if (r.haveAddl) {
+    text += `\n[추가매수]\n수량: ${fmt(r.qty2)}주\n단가: ${fmt(r.price2)}\n금액: ${fmt(r.cost2)}\n수수료: ${fmt(r.fee2)}\n`;
+    text += `\n[예상]\n예상 매입금액: ${fmt(r.totalCost)}\n예상 수수료: ${fmt(r.totalFee)}\n평균단가: ${fmt(Math.round(r.avgWithoutFee))}\n`;
+    if (r.current>0) {
+      const evalExp = r.totalQty * r.current, pnlExp = evalExp - r.totalCostWithFee, rateExp = r.totalCostWithFee>0 ? (pnlExp/r.totalCostWithFee*100) : 0;
+      text += `예상 평가금액: ${fmt(evalExp)}\n예상 평가손익: ${pnlExp>=0?'+':'-'}${fmt(Math.abs(pnlExp))}\n예상 수익률: ${rateExp>=0?'+':'-'}${Math.abs(rateExp).toFixed(2)}%\n`;
+    }
+  }
+  copyToClipboard(text);
+}
 
-// ===== ETF 목표매도가 (원본 로직 유지, 매도 수량 자동 동기화 없음) =====
+// ===== ETF 목표매도가 =====
 let taxRate=0, lastSellResult=null, sellCalcMode='rate', sellQtyUserSet=false;
 function resetSellQty() { sellQtyUserSet=false; calcSell('base'); }
 function setTax(rate, btn) { taxRate=rate; btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
@@ -610,14 +664,46 @@ function calcSell(source) {
   const realized = preTaxProfit - tax;
   rate = cost>0 ? (realized/cost*100) : 0;
   lastSellResult = { avg, heldQty, qty, cost, sellPrice, sellAmt, sellFee, tax, realized, rate };
-  document.getElementById('result-sell').innerHTML = `...`; // (원본과 동일)
+  document.getElementById('result-sell').innerHTML = `<div class="result-table">
+    <div class="result-table-row"><span class="result-label">매도 수량</span><span class="result-val">${fmt(qty)}주</span></div>
+    <div class="result-table-row"><span class="result-label">매입금액</span><span class="result-val">${fmt(cost)}</span></div>
+    <div class="result-table-row"><span class="result-label">목표 매도단가</span><span class="result-val positive">${fmt(Math.round(sellPrice))}</span></div>
+    <div class="result-table-row"><span class="result-label">예상 매도금액</span><span class="result-val">${fmt(sellAmt)}</span></div>
+    <div class="result-table-row"><span class="result-label">수수료+세금</span><span class="result-val">${fmt(sellFee+tax)}</span></div>
+    <div class="result-table-row"><span class="result-label">실현손익</span><span class="result-val ${realized>=0?'positive':'negative'}">${realized>=0?'+':'-'}${fmt(Math.abs(realized))}</span></div>
+    <div class="result-table-row"><span class="result-label">수익률</span><span class="result-val ${rate>=0?'positive':'negative'}">${rate>=0?'+':'-'}${Math.abs(rate).toFixed(2)}%</span></div>
+  </div>`;
 }
-function copyResultSell() { /* 원본과 동일 */ }
+function copyResultSell() {
+  if (!lastSellResult) { alert('먼저 계산하세요!'); return; }
+  const r = lastSellResult;
+  let text = `【ETF 목표매도가 계산】\n\n평단가: ${fmt(r.avg)}\n보유 수량: ${fmt(r.heldQty)}주\n매도 수량: ${fmt(r.qty)}주\n매입금액: ${fmt(r.cost)}\n목표 매도단가: ${fmt(Math.round(r.sellPrice))}\n예상 매도금액: ${fmt(r.sellAmt)}\n수수료+세금: ${fmt(r.sellFee+r.tax)}\n실현손익: ${r.realized>=0?'+':'-'}${fmt(Math.abs(r.realized))}\n수익률: ${r.rate>=0?'+':'-'}${Math.abs(r.rate).toFixed(2)}%\n`;
+  copyToClipboard(text);
+}
 
-// ===== ETF 괴리율 (원본 그대로) =====
+// ===== ETF 괴리율 =====
 let lastGapResult=null;
-function calcGap() { /* 원본과 동일 */ }
-function copyResultGap() { /* 원본과 동일 */ }
+function calcGap() {
+  const market = parseNum(document.getElementById('g-market').value)||0;
+  const gapPct = parseNum(document.getElementById('g-gap').value)||0;
+  if (market<=0) { document.getElementById('result-gap').innerHTML=''; lastGapResult=null; return; }
+  const nav = market / (1 + gapPct/100);
+  const diff = market - nav;
+  const impact100 = diff * 100;
+  lastGapResult = { market, gapPct, nav, diff, impact100 };
+  document.getElementById('result-gap').innerHTML = `<div class="result-table">
+    <div class="result-table-row"><span class="result-label">시장가</span><span class="result-val">${fmt(market)}</span></div>
+    <div class="result-table-row"><span class="result-label">역산 NAV</span><span class="result-val positive">${fmt(Math.round(nav))}</span></div>
+    <div class="result-table-row"><span class="result-label">시장가 − NAV</span><span class="result-val ${diff>=0?'positive':'negative'}">${diff>=0?'+':'-'}${fmt(Math.abs(diff))}</span></div>
+    <div class="result-table-row"><span class="result-label">100주 영향액</span><span class="result-val ${diff>=0?'positive':'negative'}">${diff>=0?'+':'-'}${fmt(Math.abs(impact100))}</span></div>
+  </div>`;
+}
+function copyResultGap() {
+  if (!lastGapResult) { alert('먼저 계산하세요!'); return; }
+  const r = lastGapResult;
+  let text = `【ETF 괴리율 계산】\n\n시장가: ${fmt(r.market)}\n괴리율: ${r.gapPct>=0?'+':''}${r.gapPct}%\n역산 NAV: ${fmt(Math.round(r.nav))}\n시장가-NAV: ${r.diff>=0?'+':'-'}${fmt(Math.abs(r.diff))}\n100주 영향액: ${r.diff>=0?'+':'-'}${fmt(Math.abs(r.impact100))}\n`;
+  copyToClipboard(text);
+}
 
 // 초기화
 document.getElementById('tax-btn-0').classList.add('active');
