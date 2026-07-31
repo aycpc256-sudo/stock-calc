@@ -220,10 +220,13 @@ button:active { background:#d32f2f; }
         <input type="text" inputmode="decimal" class="num-input" id="a-target-avg" placeholder="목표 평단가" data-calc="calcAvg" data-calc-arg="target" style="color:#ffb300;" data-tick="price">
       </div>
     </div>
+
     <div class="button-group">
       <button onclick="resetAvgMode()">추가매수 초기화</button>
+      <button onclick="resetCurrentPrice()">현재 단가 초기화</button>
       <button onclick="copyResultAvg()">결과 복사</button>
     </div>
+
     <div class="result-info">💡 ①②③ 중 2개 입력 시 나머지 1개와 평균단가가 자동계산됩니다 (파란 배지: 정방향 모드).<br>💡 평균단가를 직접 입력하면, <b>"현재 단가" 값을 매수단가로 가정</b>하고 ①②③이 역산됩니다 (주황 배지: 역산 모드). 현재 단가를 먼저 입력해주세요.</div>
   </div>
 
@@ -235,11 +238,11 @@ button:active { background:#d32f2f; }
         <div class="input-section">
           <div class="input-group">
             <label>평단가</label>
-            <input type="text" inputmode="decimal" class="num-input" id="s-avg" value="12500" data-calc="calcSell" data-calc-arg="base" data-tick="price">
+            <input type="text" inputmode="decimal" class="num-input" id="s-avg" value="0" data-calc="calcSell" data-calc-arg="base" data-tick="price">
           </div>
           <div class="input-group">
             <label>보유 수량</label>
-            <input type="text" inputmode="decimal" class="num-input" id="s-qty" value="150" data-calc="calcSell" data-calc-arg="base">
+            <input type="text" inputmode="decimal" class="num-input" id="s-qty" value="0" data-calc="calcSell" data-calc-arg="base">
           </div>
           <div class="input-group">
             <label>매도 수수료</label>
@@ -278,7 +281,9 @@ button:active { background:#d32f2f; }
         </div>
       </div>
     </div>
+
     <div class="button-group">
+      <button onclick="resetSellInfo()">보유정보 초기화</button>
       <button onclick="resetSellQty()">매도수량 보유량과 동일</button>
       <button onclick="copyResultSell()">결과 복사</button>
     </div>
@@ -413,11 +418,11 @@ function addSpinner(inp) {
     if (dir === 1) {
       const tick = getPriceTick(cur);
       next = Math.ceil(cur / tick) * tick;
-      if (next === cur) next = cur + tick; // 이미 유효 호가이면 한 틱 증가
+      if (next === cur) next = cur + tick;
     } else {
-      const tick = getPriceTick(cur - 1); // 경계 감소를 위해 이전 구간 틱 사용
+      const tick = getPriceTick(cur - 1);
       next = Math.floor(cur / tick) * tick;
-      if (next === cur) next = cur - tick; // 이미 유효 호가이면 한 틱 감소
+      if (next === cur) next = cur - tick;
     }
 
     if (next < 0) next = 0;
@@ -514,6 +519,7 @@ function copyResultStock() {
 // ===== ETF 평단가 =====
 let lastAvgResult=null, avgInputMode=null;
 function resetAvgMode() { avgInputMode=null; document.getElementById('a-qty2').value=''; document.getElementById('a-price2').value=''; document.getElementById('a-cost2').value=''; document.getElementById('a-target-avg').value=''; updateAvgModeBadge(); calcAvg(); }
+function resetCurrentPrice() { document.getElementById('a-current').value = ''; calcAvg(); }
 function updateAvgModeBadge() {
   const badge = document.getElementById('avg-mode-badge');
   if (avgInputMode==='forward') badge.innerHTML='<span class="avg-mode-badge forward">정방향 모드</span>';
@@ -527,7 +533,8 @@ function calcAvg(source) {
   if (qty1 <= 0 || avg1 <= 0) { document.getElementById('result-avg').innerHTML=''; lastAvgResult=null; return; }
   const cost1 = qty1 * avg1, fee1 = cost1 * feeRate;
   document.getElementById('a-cost1-display').value = fmt(cost1);
-  document.getElementById('a-fee2-display').value = feeRate * 100;
+  // 버그 수정: 소수점 깔끔하게 표시
+  document.getElementById('a-fee2-display').value = (feeRate * 100).toFixed(3).replace(/\.?0+$/, '');
   const current = parseNum(document.getElementById('a-current').value) || 0;
   if (source === 'target') avgInputMode = 'reverse';
   else if (source === 'qty2' || source === 'price2' || source === 'cost2') avgInputMode = 'forward';
@@ -618,6 +625,18 @@ function copyResultAvg() {
 
 // ===== ETF 목표매도가 =====
 let taxRate=0, lastSellResult=null, sellCalcMode='rate', sellQtyUserSet=false;
+function resetSellInfo() {
+  document.getElementById('s-avg').value = '0';
+  document.getElementById('s-qty').value = '0';
+  // 수수료율은 그대로 유지
+  // 버그 수정: 목표수익률/이익/매도단가도 초기화
+  document.getElementById('s-target').value = '10';
+  document.getElementById('s-target-amt').value = '';
+  document.getElementById('s-sell-price').value = '';
+  sellCalcMode = 'rate';
+  sellQtyUserSet = false;
+  calcSell('base');
+}
 function resetSellQty() { sellQtyUserSet=false; calcSell('base'); }
 function setTax(rate, btn) { taxRate=rate; btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
 function calcSell(source) {
